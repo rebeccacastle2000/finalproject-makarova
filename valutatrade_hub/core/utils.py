@@ -1,4 +1,5 @@
 """Вспомогательные функции и утилиты для бизнес-логики."""
+
 from datetime import datetime
 from typing import Optional
 
@@ -61,11 +62,11 @@ def get_exchange_rate(from_code: str, to_code: str, rates_cache: Optional[dict] 
         raise ValueError(f"Курс {from_code}→{to_code} недоступен")
 
     pair = f"{from_code}_{to_code}"
-    if pair in rates_cache and "rate"in rates_cache[pair]:
+    if pair in rates_cache and "rate" in rates_cache[pair]:
         return rates_cache[pair]["rate"]
 
     reverse_pair = f"{to_code}_{from_code}"
-    if reverse_pair in rates_cache and "rate"in rates_cache[reverse_pair]:
+    if reverse_pair in rates_cache and "rate" in rates_cache[reverse_pair]:
         return 1.0 / rates_cache[reverse_pair]["rate"]
 
     raise ValueError(f"Курс {from_code}→{to_code} недоступен")

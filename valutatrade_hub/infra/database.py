@@ -70,7 +70,7 @@ class DatabaseManager:
             "GBP_USD": {"rate": 1.27, "updated_at": now},
             "JPY_USD": {"rate": 0.0067, "updated_at": now},
             "source": "StubService",
-            "last_refresh": now
+            "last_refresh": now,
         }
 
 

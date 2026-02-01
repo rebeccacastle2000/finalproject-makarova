@@ -1,4 +1,5 @@
 """Модели данных приложения с приватными полями и интеграцией валют."""
+
 import hashlib
 from datetime import datetime
 from typing import Optional
@@ -16,7 +17,7 @@ class User:
         username: str,
         password: str,
         salt: Optional[str] = None,
-        registration_date: Optional[datetime] = None
+        registration_date: Optional[datetime] = None,
     ):
         self._user_id = user_id
         self.username = username
@@ -45,6 +46,7 @@ class User:
     def _generate_salt(self) -> str:
         """Генерация уникальной соли."""
         import secrets
+
         return secrets.token_urlsafe(8)
 
     def _hash_password(self, password: str) -> str:
@@ -69,7 +71,7 @@ class User:
         return {
             "user_id": self._user_id,
             "username": self._username,
-            "registration_date": self._registration_date.isoformat()
+            "registration_date": self._registration_date.isoformat(),
         }
 
     def to_dict(self) -> dict:
@@ -79,7 +81,7 @@ class User:
             "username": self._username,
             "hashed_password": self._hashed_password,
             "salt": self._salt,
-            "registration_date": self._registration_date.isoformat()
+            "registration_date": self._registration_date.isoformat(),
         }
 
     @classmethod
@@ -90,7 +92,7 @@ class User:
             username=data["username"],
             password="dummy",
             salt=data["salt"],
-            registration_date=datetime.fromisoformat(data["registration_date"])
+            registration_date=datetime.fromisoformat(data["registration_date"]),
         )
 
 
@@ -134,9 +136,7 @@ class Wallet:
             raise ValueError("'amount' должен быть положительным числом")
         if amount > self._balance:
             raise InsufficientFundsError(
-                currency_code=self.currency_code,
-                available=self._balance,
-                required=amount
+                currency_code=self.currency_code, available=self._balance, required=amount
             )
         self._balance -= amount
 
@@ -145,23 +145,17 @@ class Wallet:
         return {
             "currency_code": self.currency_code,
             "balance": self._balance,
-            "currency_info": self.currency.get_display_info()
+            "currency_info": self.currency.get_display_info(),
         }
 
     def to_dict(self) -> dict:
         """Сериализация."""
-        return {
-            "currency_code": self.currency_code,
-            "balance": self._balance
-        }
+        return {"currency_code": self.currency_code, "balance": self._balance}
 
     @classmethod
     def from_dict(cls, data: dict) -> "Wallet":
         """Десериализация."""
-        return cls(
-            currency_code=data["currency_code"],
-            balance=data["balance"]
-        )
+        return cls(currency_code=data["currency_code"], balance=data["balance"])
 
 
 class Portfolio:
@@ -200,7 +194,9 @@ class Portfolio:
             raise WalletNotFoundError(currency_code)
         return self._wallets[currency_code]
 
-    def get_total_value(self, base_currency: str = "USD", exchange_rates: Optional[dict] = None) -> float:
+    def get_total_value(
+        self, base_currency: str = "USD", exchange_rates: Optional[dict] = None
+    ) -> float:
         """Расчёт общей стоимости портфеля в базовой валюте."""
         if exchange_rates is None:
             exchange_rates = {
@@ -242,9 +238,7 @@ class Portfolio:
         """Сериализация портфеля."""
         return {
             "user_id": self._user_id,
-            "wallets": {
-                code: wallet.to_dict() for code, wallet in self._wallets.items()
-            }
+            "wallets": {code: wallet.to_dict() for code, wallet in self._wallets.items()},
         }
 
     @classmethod
@@ -254,7 +248,4 @@ class Portfolio:
             code: Wallet.from_dict(wallet_data)
             for code, wallet_data in data.get("wallets", {}).items()
         }
-        return cls(
-            user_id=data["user_id"],
-            wallets=wallets
-        )
+        return cls(user_id=data["user_id"], wallets=wallets)

@@ -33,10 +33,7 @@ class FiatCurrency(Currency):
         self.issuing_country = issuing_country.strip()
 
     def get_display_info(self) -> str:
-        return (
-            f"[FIAT] {self.code} — {self.name} "
-            f"(Issuing: {self.issuing_country})"
-        )
+        return f"[FIAT] {self.code} — {self.name} (Issuing: {self.issuing_country})"
 
 
 class CryptoCurrency(Currency):
@@ -58,10 +55,7 @@ class CryptoCurrency(Currency):
             mcap_str = f"{self.market_cap / 1e6:.2f}M"
         else:
             mcap_str = f"{self.market_cap:,.0f}"
-        return (
-            f"[CRYPTO] {self.code} — {self.name} "
-            f"(Algo: {self.algorithm}, MCAP: {mcap_str})"
-        )
+        return f"[CRYPTO] {self.code} — {self.name} (Algo: {self.algorithm}, MCAP: {mcap_str})"
 
 
 _CURRENCY_REGISTRY: dict[str, Currency] = {

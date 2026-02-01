@@ -1,5 +1,8 @@
 """Консольный интерфейс приложения с обработкой ошибок."""
+
 import shlex
+
+from prettytable import PrettyTable
 
 from valutatrade_hub.core.exceptions import (
     ApiRequestError,
@@ -13,6 +16,8 @@ from valutatrade_hub.core.exceptions import (
 from valutatrade_hub.core.usecases import UseCases
 from valutatrade_hub.infra.database import db
 from valutatrade_hub.logging_config import setup_logging
+from valutatrade_hub.parser_service.storage import RatesStorage
+from valutatrade_hub.parser_service.updater import RatesUpdater
 
 
 class CLI:
@@ -57,6 +62,7 @@ class CLI:
                 # Обработка неожиданных ошибок
                 print(f"❌ Критическая ошибка: {type(e).__name__}: {e}")
                 import logging
+
                 logging.getLogger("actions").exception("Unhandled exception in CLI")
 
     def _show_help(self):
@@ -123,6 +129,10 @@ class CLI:
                 self._cmd_sell(args)
             elif command == "get-rate":
                 self._cmd_get_rate(args)
+            elif command == "update-rates":
+                self._cmd_update_rates(args)
+            elif command == "show-rates":
+                self._cmd_show_rates(args)
             else:
                 print(f"❌ Неизвестная команда: {command}. Введите 'help' для справки.")
         except (UserNotFoundError, AuthenticationError) as e:
@@ -218,8 +228,10 @@ class CLI:
             amount = float(amount)
             result = self.use_cases.buy(currency, amount)
 
-            print(f"\n✅ Покупка выполнена: {result['amount']:.6f} {result['currency']} "
-                  f"по курсу {result['rate']:.2f} USD/{result['currency']}")
+            print(
+                f"\n✅ Покупка выполнена: {result['amount']:.6f} {result['currency']} "
+                f"по курсу {result['rate']:.2f} USD/{result['currency']}"
+            )
             print(f"   Новый баланс {result['currency']}: {result['wallet_balance']:.6f}")
             print(f"   Оценочная стоимость: {result['usd_value']:,.2f} USD\n")
         except ValueError:
@@ -243,8 +255,10 @@ class CLI:
             amount = float(amount)
             result = self.use_cases.sell(currency, amount)
 
-            print(f"\n✅ Продажа выполнена: {result['amount']:.6f} {result['currency']} "
-                  f"по курсу {result['rate']:.2f} USD/{result['currency']}")
+            print(
+                f"\n✅ Продажа выполнена: {result['amount']:.6f} {result['currency']} "
+                f"по курсу {result['rate']:.2f} USD/{result['currency']}"
+            )
             print(f"   Новый баланс {result['currency']}: {result['wallet_balance']:.6f}")
             print(f"   Выручка: {result['usd_revenue']:,.2f} USD\n")
         except ValueError:
@@ -264,7 +278,114 @@ class CLI:
             rate_info = self.use_cases.get_rate(from_code, to_code)
 
             print(f"\nКурс {rate_info['from']}→{rate_info['to']}: {rate_info['formatted_rate']}")
-            print(f"Обратный курс {rate_info['to']}→{rate_info['from']}: {rate_info['formatted_reverse']}")
+            print(
+                f"Обратный курс {rate_info['to']}→{rate_info['from']}: {rate_info['formatted_reverse']}"
+            )
             print(f"Обновлено: {rate_info['updated_at']}\n")
         except Exception as e:
             print(f"❌ Ошибка получения курса: {e}")
+
+    def _cmd_update_rates(self, args: dict):
+        """Команда обновления курсов валют."""
+        source = args.get("source")
+
+        if source and source not in ("coingecko", "exchangerate"):
+            print(f"❌ Неверный источник: {source}. Допустимые значения: coingecko, exchangerate")
+            return
+
+        try:
+            updater = RatesUpdater()
+            print("🔄 Запуск обновления курсов...")
+
+            result = updater.run_update(source=source)
+
+            if result["success"]:
+                print(
+                    f"✅ Обновление успешно завершено. Обновлено пар: {len(result['updated_pairs'])}"
+                )
+                print(f"   Последнее обновление: {result['timestamp']}")
+            else:
+                print("⚠️  Обновление завершено с ошибками:")
+                for error in result["errors"]:
+                    print(f"   • {error}")
+                if result["updated_pairs"]:
+                    print(f"   Успешно обновлено пар: {len(result['updated_pairs'])}")
+                else:
+                    print("   Ни одна пара не была обновлена")
+
+        except Exception as e:
+            print(f"❌ Ошибка при обновлении курсов: {e}")
+
+    def _cmd_show_rates(self, args: dict):
+        """Команда показа текущих курсов."""
+        currency_filter = args.get("currency")
+        top_n = args.get("top")
+
+        try:
+            storage = RatesStorage()
+            rates_data = storage.load_current_rates()
+            pairs = rates_data.get("pairs", {})
+
+            if not pairs:
+                print(
+                    "ℹ️  Локальный кеш курсов пуст. Выполните 'update-rates', чтобы загрузить данные."
+                )
+                return
+
+            # Фильтрация по валюте
+            filtered_pairs = {}
+            if currency_filter:
+                currency_filter = currency_filter.upper()
+                for pair, data in pairs.items():
+                    if pair.startswith(f"{currency_filter}_") or pair.endswith(
+                        f"_{currency_filter}"
+                    ):
+                        filtered_pairs[pair] = data
+                if not filtered_pairs:
+                    print(f"ℹ️  Курс для '{currency_filter}' не найден в кеше.")
+                    return
+            else:
+                filtered_pairs = pairs
+
+            # Сортировка для --top
+            if top_n:
+                try:
+                    top_n = int(top_n)
+                    sorted_pairs = sorted(
+                        filtered_pairs.items(), key=lambda x: x[1]["rate"], reverse=True
+                    )[:top_n]
+                except ValueError:
+                    print(f"❌ Неверное значение --top: {top_n}")
+                    return
+            else:
+                # Сортировка по алфавиту
+                sorted_pairs = sorted(filtered_pairs.items(), key=lambda x: x[0])
+
+            # Формирование таблицы
+            table = PrettyTable()
+            table.field_names = ["Пара", "Курс", "Обновлено", "Источник"]
+            table.align["Пара"] = "l"
+            table.align["Курс"] = "r"
+            table.align["Обновлено"] = "l"
+            table.align["Источник"] = "l"
+
+            for pair, data in sorted_pairs:
+                rate = data["rate"]
+                updated_at = data["updated_at"].replace("T", " ").split(".")[0]
+                source = data["source"]
+
+                # Форматирование курса в зависимости от типа валюты
+                if pair.startswith("BTC") or pair.startswith("ETH") or pair.startswith("SOL"):
+                    rate_str = f"{rate:,.2f}"
+                else:
+                    rate_str = f"{rate:.4f}"
+
+                table.add_row([pair, rate_str, updated_at, source])
+
+            last_refresh = rates_data.get("last_refresh", "unknown").replace("T", " ").split(".")[0]
+            print(f"\nАктуальные курсы (последнее обновление: {last_refresh})")
+            print(table)
+            print()
+
+        except Exception as e:
+            print(f"❌ Ошибка при отображении курсов: {e}")

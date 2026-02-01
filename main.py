@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Точка входа в приложение валютного кошелька."""
+
 from valutatrade_hub.cli.interface import CLI
 
 

@@ -25,7 +25,7 @@ class SettingsLoader:
             "default_base_currency": "USD",
             "log_file": "logs/actions.log",
             "log_level": "INFO",
-            "supported_currencies": ["USD", "EUR", "RUB", "BTC", "ETH"]
+            "supported_currencies": ["USD", "EUR", "RUB", "BTC", "ETH"],
         }
 
     def get(self, key: str, default: Any = None) -> Any:

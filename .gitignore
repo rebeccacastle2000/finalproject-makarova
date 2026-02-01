@@ -37,4 +37,9 @@ poetry.lock
 
 # Data files (IMPORTANT: не коммитим пользовательские данные!)
 data/*.json
-EOF
+EOF.env
+
+# API keys and secrets
+.env
+*.env
+.env.local

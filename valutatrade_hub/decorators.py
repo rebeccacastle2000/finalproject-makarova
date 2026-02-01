@@ -13,10 +13,8 @@ def log_action(action_name: str, verbose: bool = False) -> Callable:
             amount = kwargs.get("amount")
 
             try:
-
                 action_logger.info(
-                    f"{action_name} START user_id={user_id}"
-                    f"currency={currency_code} amount={amount}"
+                    f"{action_name} START user_id={user_id}currency={currency_code} amount={amount}"
                 )
 
                 result = func(*args, **kwargs)
@@ -44,4 +42,5 @@ def log_action(action_name: str, verbose: bool = False) -> Callable:
                 raise
 
         return wrapper
+
     return decorator

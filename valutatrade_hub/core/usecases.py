@@ -1,4 +1,5 @@
 """Бизнес-логика приложения с логированием и обработкой исключений."""
+
 from typing import Optional
 
 from valutatrade_hub.decorators import log_action
@@ -43,7 +44,6 @@ class UseCases:
 
         users.append(user.to_dict())
         db.save_json("users.json", users)
-
 
         portfolio = Portfolio(user_id=user_id)
         portfolios = db.load_json("portfolios.json", [])
@@ -108,10 +108,8 @@ class UseCases:
         currency_code = validate_currency_code(currency_code)
         amount = validate_positive_amount(amount, "amount")
 
-
         rates = db.get_exchange_rates()
         rate = get_exchange_rate(currency_code, "USD", rates)
-
 
         portfolio = self._current_portfolio
         if portfolio is None:
@@ -119,7 +117,6 @@ class UseCases:
 
         wallet = portfolio.get_wallet(currency_code)
         wallet.deposit(amount)
-
 
         portfolios = db.load_json("portfolios.json", [])
         for p in portfolios:
@@ -136,7 +133,7 @@ class UseCases:
             "amount": amount,
             "rate": rate,
             "usd_value": usd_value,
-            "wallet_balance": wallet.balance
+            "wallet_balance": wallet.balance,
         }
 
     @log_action("SELL")
@@ -153,7 +150,6 @@ class UseCases:
             wallet = self._current_portfolio.get_wallet(currency_code)
         except WalletNotFoundError:
             raise WalletNotFoundError(currency_code) from None
-
 
         wallet.withdraw(amount)
 
@@ -178,7 +174,7 @@ class UseCases:
             "amount": amount,
             "rate": rate,
             "usd_revenue": usd_revenue,
-            "wallet_balance": wallet.balance
+            "wallet_balance": wallet.balance,
         }
 
     def show_portfolio(self, base_currency: str = "USD") -> dict:
@@ -206,14 +202,16 @@ class UseCases:
                     rate = 0.0
                     value_in_base = 0.0
 
-            wallets_data.append({
-                "currency": code,
-                "balance": wallet.balance,
-                "value_in_base": value_in_base,
-                "rate": rate,
-                "formatted_balance": format_currency_amount(wallet.balance, code),
-                "formatted_value": format_currency_amount(value_in_base, base_currency)
-            })
+            wallets_data.append(
+                {
+                    "currency": code,
+                    "balance": wallet.balance,
+                    "value_in_base": value_in_base,
+                    "rate": rate,
+                    "formatted_balance": format_currency_amount(wallet.balance, code),
+                    "formatted_value": format_currency_amount(value_in_base, base_currency),
+                }
+            )
             total_value += value_in_base
 
         return {
@@ -221,7 +219,7 @@ class UseCases:
             "base_currency": base_currency,
             "wallets": wallets_data,
             "total_value": total_value,
-            "formatted_total": format_currency_amount(total_value, base_currency)
+            "formatted_total": format_currency_amount(total_value, base_currency),
         }
 
     def get_rate(self, from_code: str, to_code: str) -> dict:
@@ -241,5 +239,5 @@ class UseCases:
             "reverse_rate": reverse_rate,
             "formatted_rate": f"{rate:.8f}",
             "formatted_reverse": f"{reverse_rate:.8f}",
-            "updated_at": rates.get("last_refresh", "unknown")
+            "updated_at": rates.get("last_refresh", "unknown"),
         }
