@@ -108,9 +108,11 @@ class ExchangeRateApiClient(BaseApiClient):
             # Преобразуем курсы в унифицированный формат
             for currency_code in config.FIAT_CURRENCIES:
                 if currency_code in data.get("conversion_rates", {}):
-                    rate = data["conversion_rates"][currency_code]
+                    # ExchangeRate-API возвращает: 1 USD = X единиц валюты
+                    # Нам нужно: 1 единица валюты = Y USD → Y = 1 / X
+                    inverse_rate = 1.0 / data["conversion_rates"][currency_code]
                     pair = f"{currency_code}_{base_currency}"
-                    rates[pair] = float(rate)
+                    rates[pair] = float(inverse_rate)
 
             return rates
 

@@ -39,13 +39,21 @@ class UseCases:
         if any(u["username"] == username for u in users):
             raise ValidationError("username", f"Имя пользователя '{username}' уже занято")
 
+        # Создание пользователя
         user_id = db.get_next_user_id()
         user = User(user_id=user_id, username=username, password=password)
-
+        
+        # Сохранение пользователя
+        users = db.load_json("users.json", [])
         users.append(user.to_dict())
         db.save_json("users.json", users)
-
+        
+        # СОЗДАНИЕ ПОРТФЕЛЯ СО СТАРТОВЫМ КАПИТАЛОМ
         portfolio = Portfolio(user_id=user_id)
+        usd_wallet = portfolio.add_currency("USD")
+        usd_wallet.balance = 10000.00  # ← СТАРТОВЫЙ КАПИТАЛ
+        
+        # Сохранение портфеля
         portfolios = db.load_json("portfolios.json", [])
         portfolios.append(portfolio.to_dict())
         db.save_json("portfolios.json", portfolios)
@@ -109,13 +117,13 @@ class UseCases:
         amount = validate_positive_amount(amount, "amount")
 
         rates = db.get_exchange_rates()
-        rate = get_exchange_rate(currency_code, "USD", rates)
+        rate = get_exchange_rate(currency_code, "USD", rates.get("pairs", {}))
 
         portfolio = self._current_portfolio
         if portfolio is None:
             raise RuntimeError("Портфель не загружен")
 
-        wallet = portfolio.get_wallet(currency_code)
+        wallet = portfolio.add_currency(currency_code)  # ← add_currency вместо get_wallet
         wallet.deposit(amount)
 
         portfolios = db.load_json("portfolios.json", [])
@@ -154,7 +162,7 @@ class UseCases:
         wallet.withdraw(amount)
 
         rates = db.get_exchange_rates()
-        rate = get_exchange_rate(currency_code, "USD", rates)
+        rate = get_exchange_rate(currency_code, "USD", rates.get("pairs", {}))
         usd_revenue = amount * rate
 
         if currency_code != "USD":
@@ -223,15 +231,51 @@ class UseCases:
         }
 
     def get_rate(self, from_code: str, to_code: str) -> dict:
-        """Получение курса обмена."""
         from_code = validate_currency_code(from_code)
         to_code = validate_currency_code(to_code)
-
+        
+        # Специальный случай: одинаковые валюты
+        if from_code == to_code:
+            return {
+                "from": from_code,
+                "to": to_code,
+                "rate": 1.0,
+                "reverse_rate": 1.0,
+                "formatted_rate": "1.00000000",
+                "formatted_reverse": "1.00000000",
+                "updated_at": "now"
+            }
+        
         rates = db.get_exchange_rates()
-        rate = get_exchange_rate(from_code, to_code, rates)
-
+        pairs = rates.get("pairs", {})
+        
+        direct_pair = f"{from_code}_{to_code}"
+        reverse_pair = f"{to_code}_{from_code}"
+        
+        if direct_pair in pairs:
+            rate = pairs[direct_pair]["rate"]
+        elif reverse_pair in pairs:
+            rate = 1.0 / pairs[reverse_pair]["rate"]
+        else:
+            if from_code != "USD" and to_code != "USD":
+                usd_pair_from = f"{from_code}_USD"
+                usd_pair_to = f"{to_code}_USD"
+                if usd_pair_from in pairs and usd_pair_to in pairs:
+                    rate_from_usd = pairs[usd_pair_from]["rate"]
+                    rate_to_usd = pairs[usd_pair_to]["rate"]
+                    rate = rate_to_usd / rate_from_usd
+                else:
+                    raise ApiRequestError(
+                        f"Курс {from_code}→{to_code} недоступен напрямую и через USD. "
+                        f"Выполните 'update-rates'."
+                    )
+            else:
+                raise ApiRequestError(
+                    f"Курс {from_code}→{to_code} недоступен. Выполните 'update-rates'."
+                )
+        
         reverse_rate = 1.0 / rate if rate != 0 else 0.0
-
+        
         return {
             "from": from_code,
             "to": to_code,
@@ -239,5 +283,5 @@ class UseCases:
             "reverse_rate": reverse_rate,
             "formatted_rate": f"{rate:.8f}",
             "formatted_reverse": f"{reverse_rate:.8f}",
-            "updated_at": rates.get("last_refresh", "unknown"),
+            "updated_at": rates.get("last_refresh", "unknown")
         }

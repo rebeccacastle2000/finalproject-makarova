@@ -86,14 +86,14 @@ class User:
 
     @classmethod
     def from_dict(cls, data: dict) -> "User":
-        """Десериализация из словаря."""
-        return cls(
-            user_id=data["user_id"],
-            username=data["username"],
-            password="dummy",
-            salt=data["salt"],
-            registration_date=datetime.fromisoformat(data["registration_date"]),
-        )
+        """Десериализация пользователя из словаря без повторного хеширования."""
+        user = cls.__new__(cls)
+        user._user_id = data["user_id"]
+        user._username = data["username"]
+        user._hashed_password = data["hashed_password"]  
+        user._salt = data["salt"]  
+        user._registration_date = datetime.fromisoformat(data["registration_date"])
+        return user
 
 
 class Wallet:
@@ -194,46 +194,32 @@ class Portfolio:
             raise WalletNotFoundError(currency_code)
         return self._wallets[currency_code]
 
-    def get_total_value(
-        self, base_currency: str = "USD", exchange_rates: Optional[dict] = None
-    ) -> float:
-        """Расчёт общей стоимости портфеля в базовой валюте."""
+    def get_total_value(self, base_currency: str = "USD", exchange_rates: Optional[dict] = None) -> float:
         if exchange_rates is None:
-            exchange_rates = {
-                "USD_USD": 1.0,
-                "EUR_USD": 1.0786,
-                "RUB_USD": 0.01016,
-                "GBP_USD": 1.27,
-                "JPY_USD": 0.0067,
-                "BTC_USD": 59337.21,
-                "ETH_USD": 3720.00,
-                "SOL_USD": 145.50,
-                "XRP_USD": 0.58,
-            }
-
+            exchange_rates = db.get_exchange_rates().get("pairs", {})
+        
         base_currency = base_currency.upper()
         total = 0.0
-
+        
         for wallet in self._wallets.values():
             if wallet.currency_code == base_currency:
                 total += wallet.balance
             else:
                 pair = f"{wallet.currency_code}_{base_currency}"
-                if pair not in exchange_rates:
-                    reverse_pair = f"{base_currency}_{wallet.currency_code}"
-                    if reverse_pair in exchange_rates:
-                        rate = 1.0 / exchange_rates[reverse_pair]
-                    else:
-                        raise ValueError(
-                            f"Неизвестная базовая валюта '{wallet.currency_code}' "
-                            f"для конвертации в {base_currency}"
-                        )
+                if pair in exchange_rates and "rate" in exchange_rates[pair]:
+                    rate = exchange_rates[pair]["rate"]
                 else:
-                    rate = exchange_rates[pair]
+                    # Попытка обратного курса
+                    reverse_pair = f"{base_currency}_{wallet.currency_code}"
+                    if reverse_pair in exchange_rates and "rate" in exchange_rates[reverse_pair]:
+                        rate = 1.0 / exchange_rates[reverse_pair]["rate"]
+                    else:
+                        # Пропускаем валюту без курса (не ломаем расчёт всего портфеля)
+                        continue
                 total += wallet.balance * rate
-
+        
         return total
-
+    
     def to_dict(self) -> dict:
         """Сериализация портфеля."""
         return {

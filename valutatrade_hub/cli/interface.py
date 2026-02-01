@@ -1,6 +1,12 @@
 """Консольный интерфейс приложения с обработкой ошибок."""
 
 import shlex
+import sys
+try:
+    import readline  # ← ЭТА СТРОКА РЕШАЕТ ПРОБЛЕМУ СО СТРЕЛКАМИ
+except ImportError:
+    pass  # Windows — работаем без истории команд (но проект ориентирован на Unix)
+
 
 from prettytable import PrettyTable
 
@@ -228,10 +234,9 @@ class CLI:
             amount = float(amount)
             result = self.use_cases.buy(currency, amount)
 
-            print(
-                f"\n✅ Покупка выполнена: {result['amount']:.6f} {result['currency']} "
-                f"по курсу {result['rate']:.2f} USD/{result['currency']}"
-            )
+            print(f"✅ Покупка выполнена: {result['amount']:.6f} {result['currency']} "
+                f"по курсу {result['rate']:.4f} {result['currency']}/USD")
+            print(f"   Стоимость покупки: {result['usd_value']:,.2f} USD")
             print(f"   Новый баланс {result['currency']}: {result['wallet_balance']:.6f}")
             print(f"   Оценочная стоимость: {result['usd_value']:,.2f} USD\n")
         except ValueError:
@@ -255,10 +260,9 @@ class CLI:
             amount = float(amount)
             result = self.use_cases.sell(currency, amount)
 
-            print(
-                f"\n✅ Продажа выполнена: {result['amount']:.6f} {result['currency']} "
-                f"по курсу {result['rate']:.2f} USD/{result['currency']}"
-            )
+            print(f"✅ Продажа выполнена: {result['amount']:.6f} {result['currency']} "
+                f"по курсу {result['rate']:.4f} {result['currency']}/USD")
+            print(f"   Зачислено на USD: {result['usd_revenue']:,.2f} USD")
             print(f"   Новый баланс {result['currency']}: {result['wallet_balance']:.6f}")
             print(f"   Выручка: {result['usd_revenue']:,.2f} USD\n")
         except ValueError:
