@@ -6,6 +6,7 @@ from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.database import db
 
 from .exceptions import (
+    ApiRequestError,
     AuthenticationError,
     UserNotFoundError,
     ValidationError,
@@ -42,17 +43,17 @@ class UseCases:
         # Создание пользователя
         user_id = db.get_next_user_id()
         user = User(user_id=user_id, username=username, password=password)
-        
+
         # Сохранение пользователя
         users = db.load_json("users.json", [])
         users.append(user.to_dict())
         db.save_json("users.json", users)
-        
+
         # СОЗДАНИЕ ПОРТФЕЛЯ СО СТАРТОВЫМ КАПИТАЛОМ
         portfolio = Portfolio(user_id=user_id)
         usd_wallet = portfolio.add_currency("USD")
         usd_wallet.balance = 10000.00  # ← СТАРТОВЫЙ КАПИТАЛ
-        
+
         # Сохранение портфеля
         portfolios = db.load_json("portfolios.json", [])
         portfolios.append(portfolio.to_dict())
@@ -233,7 +234,7 @@ class UseCases:
     def get_rate(self, from_code: str, to_code: str) -> dict:
         from_code = validate_currency_code(from_code)
         to_code = validate_currency_code(to_code)
-        
+
         # Специальный случай: одинаковые валюты
         if from_code == to_code:
             return {
@@ -245,13 +246,13 @@ class UseCases:
                 "formatted_reverse": "1.00000000",
                 "updated_at": "now"
             }
-        
+
         rates = db.get_exchange_rates()
         pairs = rates.get("pairs", {})
-        
+
         direct_pair = f"{from_code}_{to_code}"
         reverse_pair = f"{to_code}_{from_code}"
-        
+
         if direct_pair in pairs:
             rate = pairs[direct_pair]["rate"]
         elif reverse_pair in pairs:
@@ -273,9 +274,9 @@ class UseCases:
                 raise ApiRequestError(
                     f"Курс {from_code}→{to_code} недоступен. Выполните 'update-rates'."
                 )
-        
+
         reverse_rate = 1.0 / rate if rate != 0 else 0.0
-        
+
         return {
             "from": from_code,
             "to": to_code,

@@ -1,12 +1,6 @@
 """Консольный интерфейс приложения с обработкой ошибок."""
 
 import shlex
-import sys
-try:
-    import readline  # ← ЭТА СТРОКА РЕШАЕТ ПРОБЛЕМУ СО СТРЕЛКАМИ
-except ImportError:
-    pass  # Windows — работаем без истории команд (но проект ориентирован на Unix)
-
 
 from prettytable import PrettyTable
 

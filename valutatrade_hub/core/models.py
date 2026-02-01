@@ -4,6 +4,8 @@ import hashlib
 from datetime import datetime
 from typing import Optional
 
+from valutatrade_hub.infra.database import db
+
 from .currencies import Currency, get_currency
 from .exceptions import InsufficientFundsError, WalletNotFoundError
 
@@ -90,8 +92,8 @@ class User:
         user = cls.__new__(cls)
         user._user_id = data["user_id"]
         user._username = data["username"]
-        user._hashed_password = data["hashed_password"]  
-        user._salt = data["salt"]  
+        user._hashed_password = data["hashed_password"]
+        user._salt = data["salt"]
         user._registration_date = datetime.fromisoformat(data["registration_date"])
         return user
 
@@ -197,10 +199,10 @@ class Portfolio:
     def get_total_value(self, base_currency: str = "USD", exchange_rates: Optional[dict] = None) -> float:
         if exchange_rates is None:
             exchange_rates = db.get_exchange_rates().get("pairs", {})
-        
+
         base_currency = base_currency.upper()
         total = 0.0
-        
+
         for wallet in self._wallets.values():
             if wallet.currency_code == base_currency:
                 total += wallet.balance
@@ -217,9 +219,9 @@ class Portfolio:
                         # Пропускаем валюту без курса (не ломаем расчёт всего портфеля)
                         continue
                 total += wallet.balance * rate
-        
+
         return total
-    
+
     def to_dict(self) -> dict:
         """Сериализация портфеля."""
         return {
